@@ -1,0 +1,50 @@
+name: NodeJS with Grunt
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get current git tag
+        id: get_tag
+        uses: keeweb/get-git-tag@v3.0.2
+        with:
+          tagRegex: "^v(\\d+\\.\\d+\\.\\d+)$"
+          tagRegexGroup: 1
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: keeweb/keeweb
+          ref: ${{ github.repository == 'keeweb/keeweb' && github.sha || 'develop' }}
+      - name: Upgrade Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install npm modules
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Grunt
+        run: grunt
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: KeeWeb-${{ steps.get_tag.outputs.tag }}.html
+          path: dist
+      - name: Write secrets
+        env:
+          VIRUS_TOTAL: ${{ secrets.VIRUS_TOTAL }}
+        run: |
+          mkdir keys
+          echo "$VIRUS_TOTAL" > keys/virus-total.json
+      - name: Check on VirusTotal
+        run: grunt virustotal
+        if: ${{ github.repository == 'keeweb/keeweb' }}
+
+    
